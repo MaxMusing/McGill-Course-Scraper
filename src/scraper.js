@@ -44,6 +44,11 @@ async function main() {
 		bar.tick();
 	}
 
+	if (!courses.length) {
+		console.log(chalk.red('Error scraping. No courses found.'));
+		return;
+	}
+
 	let path = `data/courses-${year}-${year + 1}.txt`;
 	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
 
