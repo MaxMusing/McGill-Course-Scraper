@@ -1,24 +1,39 @@
 const Course = require('./Course');
-const request = require('request');
+const chalk = require('chalk');
 const cheerio = require('cheerio');
 const fs = require('fs');
+const ProgressBar = require('progress');
+const request = require('request');
 
 main();
 
 async function main() {
 	const year = 2018;
+	let courses = [];
+
+	console.log(`Scraping courses for ${year}-${year + 1} school year.`);
+
 	const numCourses = await getNumCourses(year);
 	const numCoursesPerPage = 20;
 	const numPages = Math.ceil(numCourses / numCoursesPerPage);
 
-	let courses = [];
+	let bar = new ProgressBar('[:bar] Page :current/:total', {
+		width: 50,
+		total: numPages,
+		incomplete: '-',
+		complete: '#',
+	});
 
 	for (let i = 0; i < numPages; i++) {
 		let pageCourses = await getCourses(year, i);
 		courses = courses.concat(pageCourses);
+		bar.tick();
 	}
 
-	fs.writeFileSync(`data/courses-${year}-${year + 1}.txt`, JSON.stringify(courses, null, 2));
+	let path = `data/courses-${year}-${year + 1}.txt`;
+	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
+
+	console.log(`Scraping complete! Data saved to: ${chalk.green(path)}`);
 }
 
 function getNumCourses(year) {
@@ -27,8 +42,8 @@ function getNumCourses(year) {
 	return new Promise(function(resolve, reject) {
 		request(url, (error, response, body) => {
 			if (error) {
-				console.log(`Error: ${error}`);
-				console.log(`Status code: ${response.statusCode}`);
+				console.log(chalk.red(`Error: ${error}`));
+				console.log(chalk.red(`Status code: ${response.statusCode}`));
 			} else {
 				const $ = cheerio.load(body);
 				let $numCoursesText = $('.current-search-item-text strong');
@@ -48,8 +63,8 @@ function getCourses(year, page) {
 			let pageCourses = [];
 
 			if (error) {
-				console.log(`Error: ${error}`);
-				console.log(`Status code: ${response.statusCode}`);
+				console.log(chalk.red(`Error: ${error}`));
+				console.log(chalk.red(`Status code: ${response.statusCode}`));
 			} else {
 				const $ = cheerio.load(body);
 				let $courses = $('.views-row');
