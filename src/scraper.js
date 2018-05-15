@@ -1,4 +1,5 @@
 const Course = require('./Course');
+const argv = require('yargs').argv;
 const chalk = require('chalk');
 const cheerio = require('cheerio');
 const fs = require('fs');
@@ -8,7 +9,20 @@ const request = require('request');
 main();
 
 async function main() {
-	const year = 2018;
+	let year = new Date().getFullYear();
+
+	if (argv.y) {
+		const minYear = 2009;
+		const maxYear = year;
+
+		if (argv.y === parseInt(argv.y) && argv.y >= minYear && argv.y <= maxYear) {
+			year = argv.y;
+		} else {
+			console.log(chalk.red(`Error with year parameter. Must be a value between ${minYear} and ${maxYear}.`));
+			return;
+		}
+	}
+
 	let courses = [];
 
 	console.log(`Scraping courses for ${year}-${year + 1} school year.`);
