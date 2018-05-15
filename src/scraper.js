@@ -49,7 +49,7 @@ async function main() {
 		return;
 	}
 
-	let path = `data/courses-${year}-${year + 1}.txt`;
+	let path = `data/courses-${year}-${year + 1}.json`;
 	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
 
 	console.log(`Scraping complete! Data saved to: ${chalk.green(path)}`);
