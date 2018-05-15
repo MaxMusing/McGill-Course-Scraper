@@ -3,27 +3,46 @@ const request = require('request');
 const cheerio = require('cheerio');
 const fs = require('fs');
 
-const year = 2018;
-const numCourses = 10383;
-const numCoursesPerPage = 20;
-const numPages = Math.floor(numCourses / numCoursesPerPage);
-
-let courses = [];
-
 main();
 
 async function main() {
-	for (let i = 0; i <= numPages; i++) {
-		const url = `https://www.mcgill.ca/study/${year}-${year + 1}/courses/search?page=${i}`;
-		let pageCourses = await getCourses(url);
+	const year = 2018;
+	const numCourses = await getNumCourses(year);
+	const numCoursesPerPage = 20;
+	const numPages = Math.ceil(numCourses / numCoursesPerPage);
 
+	let courses = [];
+
+	for (let i = 0; i < numPages; i++) {
+		let pageCourses = await getCourses(year, i);
 		courses = courses.concat(pageCourses);
 	}
 
-	fs.writeFileSync('data/courses.txt', JSON.stringify(courses, null, 2));
+	fs.writeFileSync(`data/courses-${year}-${year + 1}.txt`, JSON.stringify(courses, null, 2));
 }
 
-function getCourses(url) {
+function getNumCourses(year) {
+	const url = `https://www.mcgill.ca/study/${year}-${year + 1}/courses/search`;
+
+	return new Promise(function(resolve, reject) {
+		request(url, (error, response, body) => {
+			if (error) {
+				console.log(`Error: ${error}`);
+				console.log(`Status code: ${response.statusCode}`);
+			} else {
+				const $ = cheerio.load(body);
+				let $numCoursesText = $('.current-search-item-text strong');
+				let numCourses = parseInt($numCoursesText.text().split(' ')[2]);
+
+				resolve(numCourses);
+			}
+		});
+	});
+}
+
+function getCourses(year, page) {
+	const url = `https://www.mcgill.ca/study/${year}-${year + 1}/courses/search?page=${page}`;
+
 	return new Promise(function(resolve, reject) {
 		request(url, (error, response, body) => {
 			let pageCourses = [];

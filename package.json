@@ -1,5 +1,5 @@
 {
-  "name": "mcgill-course-api",
+  "name": "mcgill-course-scraper",
   "version": "",
   "dependencies": {
     "cheerio": "^1.0.0-rc.2",
