@@ -12,7 +12,7 @@ node src/scraper.js -y 2018
 
 Once complete, the program will output a list of courses to a file in the `data` directory in JSON format. For example:
 
-```
+```json
 {
   "link": "/study/2018-2019/courses/comp-251",
   "name": "Algorithms and Data Structures",
