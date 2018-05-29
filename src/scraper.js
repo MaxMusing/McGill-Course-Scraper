@@ -9,7 +9,8 @@ const request = require('request');
 main();
 
 async function main() {
-	let year = new Date().getFullYear();
+	let year;
+	const currentYear = new Date().getFullYear();
 
 	if (argv.h) {
 		console.log(`Usage: node scraper.js [-y <year>]`);
@@ -18,7 +19,7 @@ async function main() {
 
 	if (argv.y) {
 		const minYear = 2009;
-		const maxYear = year;
+		const maxYear = currentYear;
 
 		if (argv.y === parseInt(argv.y) && argv.y >= minYear && argv.y <= maxYear) {
 			year = argv.y;
@@ -28,10 +29,11 @@ async function main() {
 		}
 	}
 
+	const yearNumber = year || await getYear();
+	const yearRange = `${yearNumber}-${yearNumber + 1}`;
+	console.log(`Scraping courses for ${yearRange} school year.`);
+
 	let courses = [];
-
-	console.log(`Scraping courses for ${year}-${year + 1} school year.`);
-
 	const numCourses = await getNumCourses(year);
 	const numCoursesPerPage = 20;
 	const numPages = Math.ceil(numCourses / numCoursesPerPage);
@@ -54,17 +56,37 @@ async function main() {
 		return;
 	}
 
-	let path = `data/courses-${year}-${year + 1}.json`;
+	let path = `data/courses-${yearRange}.json`;
 	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
 
 	console.log(`Scraping complete! Data saved to: ${chalk.green(path)}`);
 }
 
-function getNumCourses(year) {
-	const url = `https://www.mcgill.ca/study/${year}-${year + 1}/courses/search`;
+function getUrl(year) {
+	const yearString = year ? `/${year}-${year + 1}` : '';
+	return `https://www.mcgill.ca/study${yearString}/courses/search`;
+}
 
+function getYear() {
 	return new Promise(function(resolve, reject) {
-		request(url, (error, response, body) => {
+		request(getUrl(null), (error, response, body) => {
+			if (error) {
+				console.log(chalk.red(`Error: ${error}`));
+				console.log(chalk.red(`Status code: ${response.statusCode}`));
+			} else {
+				const $ = cheerio.load(body);
+				let $yearText = $('#slogan');
+				let year = parseInt($yearText.text().split(/[\s\u2013]+/)[6]);
+
+				resolve(year);
+			}
+		});
+	});
+}
+
+function getNumCourses(year) {
+	return new Promise(function(resolve, reject) {
+		request(getUrl(year), (error, response, body) => {
 			if (error) {
 				console.log(chalk.red(`Error: ${error}`));
 				console.log(chalk.red(`Status code: ${response.statusCode}`));
@@ -80,7 +102,7 @@ function getNumCourses(year) {
 }
 
 function getCourses(year, page) {
-	const url = `https://www.mcgill.ca/study/${year}-${year + 1}/courses/search?page=${page}`;
+	const url = `${getUrl(year)}?page=${page}`;
 
 	return new Promise(function(resolve, reject) {
 		request(url, (error, response, body) => {
