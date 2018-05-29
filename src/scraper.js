@@ -4,7 +4,7 @@ const chalk = require('chalk');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const ProgressBar = require('progress');
-const request = require('request');
+const request = require('request').defaults({ family: 4 });
 
 main();
 
@@ -33,28 +33,22 @@ async function main() {
 	const yearRange = `${yearNumber}-${yearNumber + 1}`;
 	console.log(`Scraping courses for ${yearRange} school year.`);
 
-	let courses = [];
-	const numCourses = await getNumCourses(year);
-	const numCoursesPerPage = 20;
-	const numPages = Math.ceil(numCourses / numCoursesPerPage);
-
-	let bar = new ProgressBar('[:bar] Page :current/:total', {
-		width: 50,
-		total: numPages,
-		incomplete: '-',
-		complete: '#',
-	});
-
-	for (let i = 0; i < numPages; i++) {
-		let pageCourses = await getCourses(year, i);
-		courses = courses.concat(pageCourses);
-		bar.tick();
-	}
+	let courses = await getAllCourses(year);
 
 	if (!courses.length) {
 		console.log(chalk.red('Error scraping. No courses found.'));
 		return;
 	}
+
+	courses.sort((a, b) => {
+		if (a.department < b.department) {
+			return -1;
+		} else if (a.department > b.department) {
+			return 1;
+		} else {
+			return a.courseNumber - b.courseNumber;
+		}
+	});
 
 	if (!fs.existsSync('data')) {
 		fs.mkdirSync('data');
@@ -63,7 +57,8 @@ async function main() {
 	let path = `data/courses-${yearRange}.json`;
 	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
 
-	console.log(`Scraping complete! Data saved to: ${chalk.green(path)}`);
+	console.log(`Scraping complete! ${courses.length} of ${await getNumCourses(year)} courses scraped.`);
+	console.log(`Data saved to: ${chalk.green(path)}`);
 }
 
 function getUrl(year) {
@@ -76,7 +71,7 @@ function getYear() {
 		request(getUrl(null), (error, response, body) => {
 			if (error) {
 				console.log(chalk.red(`Error: ${error}`));
-				console.log(chalk.red(`Status code: ${response.statusCode}`));
+				console.log(chalk.red(`Status code: ${response && response.statusCode}`));
 			} else {
 				const $ = cheerio.load(body);
 				let $yearText = $('#slogan');
@@ -93,7 +88,7 @@ function getNumCourses(year) {
 		request(getUrl(year), (error, response, body) => {
 			if (error) {
 				console.log(chalk.red(`Error: ${error}`));
-				console.log(chalk.red(`Status code: ${response.statusCode}`));
+				console.log(chalk.red(`Status code: ${response && response.statusCode}`));
 			} else {
 				const $ = cheerio.load(body);
 				let $numCoursesText = $('.current-search-item-text strong');
@@ -105,7 +100,62 @@ function getNumCourses(year) {
 	});
 }
 
-function getCourses(year, page) {
+async function getAllCourses(year) {
+	let courses = [];
+	const numCourses = await getNumCourses(year);
+	const numCoursesPerPage = 20;
+	const numPages = Math.ceil(numCourses / numCoursesPerPage);
+
+	let bar = new ProgressBar('[:bar] Page :current/:total', {
+		width: 50,
+		total: numPages,
+		incomplete: '-',
+		complete: '#',
+	});
+
+	return new Promise(async function(resolve, reject) {
+		const batchSize = 32;
+
+		for (let batch = 0; batch < Math.ceil(numPages / 16); batch++) {
+			const startPage = batch * batchSize;
+			const endPage = Math.min(startPage + batchSize - 1, numPages - 1);
+
+			await getBatchCourses(year, startPage, endPage, (pageCourses) => {
+				courses = courses.concat(pageCourses);
+				bar.tick();
+
+				if (bar.complete) {
+					resolve(courses);
+				}
+			});
+		}
+	});
+}
+
+function getBatchCourses(year, startPage, endPage, cb) {
+	return new Promise(function(resolve, reject) {
+		const numPages = endPage - startPage + 1;
+		let numPagesComplete = 0;
+
+		for (let page = startPage; page <= endPage; page++) {
+			getPageCourses(year, page)
+				.then((pageCourses) => {
+					cb(pageCourses);
+
+					numPagesComplete++;
+
+					if (numPagesComplete === numPages) {
+						resolve();
+					}
+				})
+				.catch((error) => {
+					console.log(chalk.red(`Error: ${error}`));
+				});
+		}
+	});
+}
+
+function getPageCourses(year, page) {
 	const url = `${getUrl(year)}?page=${page}`;
 
 	return new Promise(function(resolve, reject) {
@@ -114,7 +164,7 @@ function getCourses(year, page) {
 
 			if (error) {
 				console.log(chalk.red(`Error: ${error}`));
-				console.log(chalk.red(`Status code: ${response.statusCode}`));
+				console.log(chalk.red(`Status code: ${response && response.statusCode}`));
 			} else {
 				const $ = cheerio.load(body);
 				let $courses = $('.views-row');
