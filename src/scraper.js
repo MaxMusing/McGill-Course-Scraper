@@ -56,6 +56,10 @@ async function main() {
 		return;
 	}
 
+	if (!fs.existsSync('data')) {
+		fs.mkdirSync('data');
+	}
+
 	let path = `data/courses-${yearRange}.json`;
 	fs.writeFileSync(path, JSON.stringify(courses, null, 2));
 
