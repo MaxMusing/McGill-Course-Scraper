@@ -4,11 +4,13 @@ A tiny CLI for scraping McGill's course information into JSON. Pulls information
 
 ## Usage
 
-Simply run the `scraper.js` file in Node.js with an optional year flag (defaults to the current year).
+Simply run the `scraper.js` file with Node.js, along with an optional year flag (defaults to the current school year).
 
 ```
-node src/scraper.js -y 2018
+node scraper.js [-y <year>]
 ```
+
+The scraper will find all courses offered in the Fall semester of the specified year, as well as the Winter and Summer semesters of the following year.
 
 Once complete, the program will output a list of courses to a file in the `data` directory in JSON format. For example:
 

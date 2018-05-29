@@ -11,6 +11,11 @@ main();
 async function main() {
 	let year = new Date().getFullYear();
 
+	if (argv.h) {
+		console.log(`Usage: node scraper.js [-y <year>]`);
+		return;
+	}
+
 	if (argv.y) {
 		const minYear = 2009;
 		const maxYear = year;
